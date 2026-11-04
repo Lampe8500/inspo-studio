@@ -20,7 +20,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env.local
 npm run dev
 ```
 
-Åbn http://localhost:3000.
+Åbn http://localhost:3456.
 
 Valgfrit i `.env.local`:
 
