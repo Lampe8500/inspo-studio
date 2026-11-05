@@ -20,7 +20,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env.local
 npm run dev
 ```
 
-Åbn http://localhost:3456.
+Åbn det link, der står i terminalen (normalt http://localhost:3456). Er porten optaget, vælges automatisk den næste ledige.
 
 Valgfrit i `.env.local`:
 
