@@ -1,31 +1,43 @@
 "use client";
 
+import { useState } from "react";
 import { PICK_ROLES, shotUrl } from "@/lib/client";
 import type { Aspect, CaptureMeta, Pick, Project } from "@/lib/types";
 
-const ASPECTS: { key: Aspect; label: string }[] = [
-  { key: "layout", label: "Layout" },
-  { key: "farver", label: "Farver" },
-  { key: "typografi", label: "Typografi" },
+/** Ét enkelt valg i stedet for tre knapper: hvad vil du låne fra udklippet? */
+const BORROW: { label: string; aspects: Aspect[] }[] = [
+  { label: "Det hele", aspects: ["layout", "farver", "typografi"] },
+  { label: "Kun opbygningen", aspects: ["layout"] },
+  { label: "Kun farverne", aspects: ["farver"] },
+  { label: "Kun skrifttypen", aspects: ["typografi"] },
 ];
 
-const THUMB_W = 288;
+const borrowLabel = (aspects: Aspect[]) =>
+  BORROW.find((b) => b.aspects.length === aspects.length && b.aspects.every((a) => aspects.includes(a)))?.label ??
+  "Det hele";
 
+const THUMB_W = 292;
+const THUMB_H = 120;
+
+/** Udklippet skaleret til at passe i en fast boks, så smalle menuer også kan ses. */
 function Thumb({ pick, meta }: { pick: Pick; meta?: CaptureMeta }) {
-  if (!meta) return <div className="h-20 rounded bg-neutral-800" />;
-  const k = THUMB_W / pick.rect.w;
-  const h = Math.min(pick.rect.h * k, 200);
+  if (!meta) return <div className="rounded-md bg-neutral-800" style={{ height: THUMB_H }} />;
+  const k = Math.min(THUMB_W / pick.rect.w, THUMB_H / pick.rect.h);
+  const w = pick.rect.w * k;
+  const h = pick.rect.h * k;
   return (
-    <div
-      className="rounded bg-neutral-800 bg-no-repeat"
-      style={{
-        width: THUMB_W,
-        height: h,
-        backgroundImage: `url(${shotUrl(meta.id)})`,
-        backgroundSize: `${meta.width * k}px auto`,
-        backgroundPosition: `${-pick.rect.x * k}px ${-pick.rect.y * k}px`,
-      }}
-    />
+    <div className="flex items-center justify-center rounded-md bg-neutral-800/70" style={{ height: THUMB_H }}>
+      <div
+        className="bg-no-repeat shadow-md"
+        style={{
+          width: w,
+          height: h,
+          backgroundImage: `url(${shotUrl(meta.id)})`,
+          backgroundSize: `${meta.width * k}px auto`,
+          backgroundPosition: `${-pick.rect.x * k}px ${-pick.rect.y * k}px`,
+        }}
+      />
+    </div>
   );
 }
 
@@ -39,139 +51,200 @@ type Props = {
 };
 
 export function Moodboard({ project, metas, generating, onChange, onFocusBoard, onGenerate }: Props) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [handleDown, setHandleDown] = useState(false);
+
   const updatePick = (id: string, patch: Partial<Pick>) =>
     onChange((p) => ({ ...p, picks: p.picks.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
 
-  const move = (idx: number, dir: -1 | 1) =>
+  const moveTo = (from: number, to: number) =>
     onChange((p) => {
+      if (from === to) return p;
       const picks = [...p.picks];
-      const j = idx + dir;
-      if (j < 0 || j >= picks.length) return p;
-      [picks[idx], picks[j]] = [picks[j], picks[idx]];
+      const [item] = picks.splice(from, 1);
+      picks.splice(to, 0, item);
       return { ...p, picks };
     });
 
   const remove = (id: string) => onChange((p) => ({ ...p, picks: p.picks.filter((x) => x.id !== id) }));
 
+  const count = project.picks.length;
+
   return (
-    <aside className="flex h-full w-[340px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
-      <div className="border-b border-neutral-800 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Moodboard</h2>
-        <p className="mt-1 text-xs text-neutral-500">
-          {project.picks.length === 0
-            ? "Klik på elementer på lærredet for at samle dem her."
-            : `${project.picks.length} valgt. Rækkefølgen bliver sidens opbygning.`}
+    <aside className="flex h-full w-[348px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
+      <div className="px-5 pb-3 pt-5">
+        <h2 className="text-base font-semibold text-white">Dine valg {count > 0 && <span className="text-neutral-500">({count})</span>}</h2>
+        <p className="mt-1 text-sm leading-snug text-neutral-400">
+          {count === 0
+            ? "Klik på de dele af siderne, du kan lide. De dukker op her."
+            : "Træk i ⠿ for at ændre rækkefølgen. Den bliver sidens opbygning fra top til bund."}
         </p>
       </div>
 
-      <ol className="flex-1 space-y-3 overflow-y-auto p-4">
+      <ol className="flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
+        {count === 0 && (
+          <li className="rounded-xl border border-dashed border-neutral-700 p-6 text-center text-sm text-neutral-500">
+            Fx en menu fra én side, en hero fra en anden og nogle kort fra en tredje.
+          </li>
+        )}
         {project.picks.map((pick, idx) => {
           const meta = metas[pick.captureId];
+          const open = openId === pick.id;
           return (
-            <li key={pick.id} className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-2.5">
-              <div className="mb-2 flex items-center gap-2 text-xs">
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-400 font-bold text-emerald-950">
+            <li
+              key={pick.id}
+              draggable={handleDown}
+              onDragStart={(e) => {
+                setDragFrom(idx);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => {
+                if (dragFrom === null) return;
+                e.preventDefault();
+                setDragOver(idx);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragFrom !== null) moveTo(dragFrom, idx);
+                setDragFrom(null);
+                setDragOver(null);
+              }}
+              onDragEnd={() => {
+                setDragFrom(null);
+                setDragOver(null);
+                setHandleDown(false);
+              }}
+              className={`group rounded-xl border bg-neutral-950/60 p-2.5 transition ${
+                dragOver === idx && dragFrom !== idx ? "border-sky-500" : "border-neutral-800"
+              } ${dragFrom === idx ? "opacity-40" : ""}`}
+            >
+              <div className="mb-2 flex items-center gap-2 text-sm">
+                <span
+                  className="cursor-grab select-none px-0.5 text-neutral-600 hover:text-neutral-300 active:cursor-grabbing"
+                  onPointerDown={() => setHandleDown(true)}
+                  onPointerUp={() => setHandleDown(false)}
+                  title="Træk for at flytte"
+                >
+                  ⠿
+                </span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-emerald-400 text-xs font-bold text-emerald-950">
                   {idx + 1}
                 </span>
-                <select
-                  value={pick.role}
-                  onChange={(e) => updatePick(pick.id, { role: e.target.value as Pick["role"] })}
-                  className="rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-100"
-                >
-                  {PICK_ROLES.map((r) => (
-                    <option key={r}>{r}</option>
-                  ))}
-                </select>
+                <span className="font-medium text-neutral-100">{pick.role}</span>
                 <button
-                  className="truncate text-neutral-500 hover:text-sky-400"
+                  className="truncate text-xs text-neutral-500 hover:text-sky-400"
                   onClick={() => onFocusBoard(pick.captureId)}
-                  title="Vis siden på lærredet"
+                  title="Vis på lærredet"
                 >
                   {meta?.host ?? "…"}
                 </button>
-                <span className="ml-auto flex shrink-0 gap-0.5 text-neutral-500">
-                  <button className="px-1 hover:text-white disabled:opacity-30" disabled={idx === 0} onClick={() => move(idx, -1)} title="Flyt op">
-                    ↑
-                  </button>
-                  <button
-                    className="px-1 hover:text-white disabled:opacity-30"
-                    disabled={idx === project.picks.length - 1}
-                    onClick={() => move(idx, 1)}
-                    title="Flyt ned"
-                  >
-                    ↓
-                  </button>
-                  <button className="px-1 hover:text-red-400" onClick={() => remove(pick.id)} title="Fjern">
-                    ✕
-                  </button>
-                </span>
+                <button
+                  className="ml-auto rounded px-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400"
+                  onClick={() => remove(pick.id)}
+                  title="Fjern"
+                  aria-label="Fjern"
+                >
+                  ✕
+                </button>
               </div>
+
               <Thumb pick={pick} meta={meta} />
-              <div className="mt-2 flex gap-1">
-                {ASPECTS.map((a) => {
-                  const on = pick.aspects.includes(a.key);
-                  return (
-                    <button
-                      key={a.key}
-                      onClick={() =>
-                        updatePick(pick.id, {
-                          aspects: on ? pick.aspects.filter((x) => x !== a.key) : [...pick.aspects, a.key],
-                        })
-                      }
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        on ? "bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/50" : "bg-neutral-800 text-neutral-500"
-                      }`}
-                    >
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <textarea
+
+              <input
                 value={pick.note}
                 onChange={(e) => updatePick(pick.id, { note: e.target.value })}
-                placeholder="Note, fx “denne hero, men mørkere”"
-                rows={2}
-                className="mt-2 w-full resize-none rounded bg-neutral-800 px-2 py-1.5 text-xs text-neutral-100 placeholder:text-neutral-500"
+                placeholder="Skriv en note (valgfrit)"
+                className="mt-2 w-full rounded-md bg-neutral-800 px-2.5 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500"
               />
+
+              <button
+                onClick={() => setOpenId(open ? null : pick.id)}
+                className="mt-1.5 text-xs text-neutral-500 hover:text-neutral-300"
+              >
+                Lån: <span className="text-neutral-300">{borrowLabel(pick.aspects)}</span> {open ? "▴" : "▾"}
+              </button>
+
+              {open && (
+                <div className="mt-2 space-y-2 rounded-md bg-neutral-900 p-2.5 text-xs text-neutral-300">
+                  <div className="flex flex-wrap gap-1">
+                    {BORROW.map((b) => {
+                      const on = borrowLabel(pick.aspects) === b.label;
+                      return (
+                        <button
+                          key={b.label}
+                          onClick={() => updatePick(pick.id, { aspects: b.aspects })}
+                          className={`rounded-full px-2.5 py-1 ${
+                            on ? "bg-sky-500 text-white" : "bg-neutral-800 text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          {b.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="flex items-center gap-2">
+                    Det er en
+                    <select
+                      value={pick.role}
+                      onChange={(e) => updatePick(pick.id, { role: e.target.value as Pick["role"] })}
+                      className="rounded bg-neutral-800 px-1.5 py-1 text-neutral-100"
+                    >
+                      {PICK_ROLES.map((r) => (
+                        <option key={r}>{r}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
             </li>
           );
         })}
       </ol>
 
-      <div className="space-y-3 border-t border-neutral-800 p-4">
-        <textarea
-          value={project.brief}
-          onChange={(e) => onChange((p) => ({ ...p, brief: e.target.value }))}
-          placeholder="Hvad er siden til? Fx “Forside for et lille kaffebrænderi i Aarhus, der sælger abonnementer”"
-          rows={3}
-          className="w-full resize-none rounded bg-neutral-800 px-2.5 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
-        />
-        <div className="flex items-center gap-3 text-xs text-neutral-300">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={project.followOrder}
-              onChange={(e) => onChange((p) => ({ ...p, followOrder: e.target.checked }))}
-            />
-            Følg min rækkefølge
-          </label>
-          <select
-            value={project.language}
-            onChange={(e) => onChange((p) => ({ ...p, language: e.target.value as Project["language"] }))}
-            className="ml-auto rounded bg-neutral-800 px-1.5 py-0.5"
-          >
-            <option value="da">Dansk</option>
-            <option value="en">English</option>
-          </select>
-        </div>
+      <div className="space-y-3 border-t border-neutral-800 p-5">
+        <label className="block">
+          <span className="text-sm font-medium text-neutral-200">Hvad skal siden bruges til?</span>
+          <textarea
+            value={project.brief}
+            onChange={(e) => onChange((p) => ({ ...p, brief: e.target.value }))}
+            placeholder="Fx forside for et lille kaffebrænderi i Aarhus"
+            rows={2}
+            className="mt-1.5 w-full resize-none rounded-md bg-neutral-800 px-2.5 py-2 text-sm text-neutral-100 placeholder:text-neutral-500"
+          />
+        </label>
         <button
           onClick={onGenerate}
-          disabled={generating || project.picks.length === 0}
-          className="w-full rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={generating || count === 0}
+          className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
         >
-          {generating ? "Laver siden …" : "Lav side med AI"}
+          {generating ? "Laver siden …" : count === 0 ? "Vælg mindst ét element først" : "Lav siden"}
         </button>
+        <details className="text-xs text-neutral-500">
+          <summary className="cursor-pointer select-none hover:text-neutral-300">Flere indstillinger</summary>
+          <div className="mt-2 space-y-2 text-neutral-300">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={project.followOrder}
+                onChange={(e) => onChange((p) => ({ ...p, followOrder: e.target.checked }))}
+              />
+              Byg siden i præcis den rækkefølge, jeg har valgt
+            </label>
+            <label className="flex items-center gap-2">
+              Sprog på siden
+              <select
+                value={project.language}
+                onChange={(e) => onChange((p) => ({ ...p, language: e.target.value as Project["language"] }))}
+                className="rounded bg-neutral-800 px-1.5 py-0.5"
+              >
+                <option value="da">Dansk</option>
+                <option value="en">Engelsk</option>
+              </select>
+            </label>
+          </div>
+        </details>
       </div>
     </aside>
   );

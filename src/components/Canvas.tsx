@@ -196,20 +196,8 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         })}
       </div>
 
-      {boards.length === 0 && loading.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="max-w-md text-center text-neutral-400">
-            <p className="text-2xl font-semibold text-neutral-200">Start med 2-3 sider, du kan lide</p>
-            <p className="mt-3 leading-relaxed">
-              Indsæt et link øverst. Siden bliver hentet og lagt på lærredet, så du kan klikke på de elementer, du
-              vil låne fra.
-            </p>
-          </div>
-        </div>
-      )}
-
       {loading.length > 0 && (
-        <div className="absolute left-4 bottom-4 rounded-lg bg-neutral-800/90 px-4 py-3 text-sm text-neutral-200 shadow-lg">
+        <div className="absolute left-4 bottom-14 rounded-lg bg-neutral-800/90 px-4 py-3 text-sm text-neutral-200 shadow-lg">
           {loading.map((u) => (
             <div key={u} className="flex items-center gap-2">
               <span className="h-3 w-3 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
@@ -219,7 +207,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg bg-neutral-800/90 p-1 text-sm text-neutral-200 shadow-lg">
+      <div className={`${boards.length === 0 ? "hidden" : "flex"} absolute bottom-4 right-4 items-center gap-1 rounded-lg bg-neutral-800/90 p-1 text-sm text-neutral-200 shadow-lg`}>
         <button className="rounded px-2 py-1 hover:bg-neutral-700" onClick={() => zoomBy(1 / 1.25)} title="Zoom ud">
           −
         </button>
@@ -232,10 +220,12 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
         </button>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-neutral-900/70 px-4 py-1.5 text-xs text-neutral-400">
-        Klik = vælg element · ↑/↓ = større/mindre element · Hjul = panorér · Ctrl/⌘ + hjul = zoom · Mellemrum + træk =
-        flyt
-      </div>
+      {boards.length > 0 && (
+        <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-neutral-900/80 px-4 py-1.5 text-xs text-neutral-400">
+          Klik på det, du kan lide · <kbd className="text-neutral-200">↑</kbd>/<kbd className="text-neutral-200">↓</kbd> større eller
+          mindre · <kbd className="text-neutral-200">Ctrl</kbd> + scroll zoomer
+        </div>
+      )}
     </div>
   );
 });

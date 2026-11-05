@@ -75,10 +75,7 @@ export function Studio() {
 
   const update = useCallback((fn: (p: Project) => Project) => setProject(fn), []);
 
-  const addSite = async (raw: string) => {
-    const target = raw.trim();
-    if (!target) return;
-    setUrl("");
+  const addOne = async (target: string) => {
     setLoadingUrls((l) => [...l, target]);
     try {
       const r = await fetch("/api/capture", {
@@ -96,10 +93,19 @@ export function Studio() {
       });
       setTimeout(() => canvasRef.current?.fit(), 50);
     } catch (err) {
-      setToast(err instanceof Error ? err.message : String(err));
+      setToast(`${target}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoadingUrls((l) => l.filter((x) => x !== target));
     }
+  };
+
+  /** Tager ét eller flere links (adskilt af mellemrum, komma eller linjeskift). */
+  const addSites = (raw: string) => {
+    const links = raw.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+    if (links.length === 0) return;
+    setUrl("");
+    setTab("canvas");
+    links.forEach((l) => void addOne(l));
   };
 
   const togglePick = useCallback((meta: CaptureMeta, el: CapturedElement) => {
@@ -227,48 +233,87 @@ export function Studio() {
     return v?.html ?? "";
   };
 
+  const steps = [
+    {
+      label: "Tilføj sider",
+      done: project.boards.length > 0,
+      active: tab === "canvas" && project.boards.length === 0,
+      onClick: () => setTab("canvas"),
+    },
+    {
+      label: "Vælg det, du kan lide",
+      done: project.picks.length > 0,
+      active: tab === "canvas" && project.boards.length > 0,
+      onClick: () => setTab("canvas"),
+    },
+    {
+      label: "Se din side",
+      done: project.versions.length > 0,
+      active: tab === "preview",
+      onClick: () => setTab("preview"),
+    },
+  ];
+
+  const removeBoard = (id: string) => {
+    const n = project.picks.filter((x) => x.captureId === id).length;
+    if (n > 0 && !window.confirm(`Fjerne siden? ${n} valgt${n === 1 ? "" : "e"} element${n === 1 ? "" : "er"} fra den forsvinder også.`)) return;
+    setProject((p) => ({
+      ...p,
+      boards: p.boards.filter((b) => b.captureId !== id),
+      picks: p.picks.filter((x) => x.captureId !== id),
+    }));
+  };
+
   return (
     <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
-      <header className="flex items-center gap-4 border-b border-neutral-800 bg-neutral-900 px-4 py-2.5">
+      <header className="flex items-center gap-6 border-b border-neutral-800 bg-neutral-900 px-5 py-3">
         <span className="text-sm font-bold tracking-tight">
           inspo<span className="text-sky-400">studio</span>
         </span>
-        <nav className="flex rounded-lg bg-neutral-800 p-0.5 text-sm">
-          {(
-            [
-              ["canvas", "Lærred"],
-              ["preview", `Side${project.versions.length ? ` (${project.versions.length})` : ""}`],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`rounded-md px-3 py-1 ${tab === k ? "bg-neutral-600 text-white" : "text-neutral-400 hover:text-white"}`}
-            >
-              {label}
-            </button>
+        <nav className="flex items-center gap-1 text-sm" aria-label="Trin">
+          {steps.map((st, i) => (
+            <div key={st.label} className="flex items-center gap-1">
+              {i > 0 && <span className="px-1 text-neutral-700">→</span>}
+              <button
+                onClick={st.onClick}
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 ${
+                  st.active ? "bg-neutral-700 text-white" : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                    st.done ? "bg-emerald-400 text-emerald-950" : "bg-neutral-800 text-neutral-400"
+                  }`}
+                >
+                  {st.done ? "✓" : i + 1}
+                </span>
+                {st.label}
+              </button>
+            </div>
           ))}
         </nav>
-        <form
-          className="ml-auto flex w-full max-w-xl gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            addSite(url);
-          }}
-        >
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Indsæt link til en side, du er inspireret af"
-            className="flex-1 rounded-lg bg-neutral-800 px-3 py-1.5 text-sm placeholder:text-neutral-500"
-          />
-          <button
-            disabled={!url.trim()}
-            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-900 hover:bg-white disabled:opacity-40"
+        {project.boards.length > 0 && (
+          <form
+            className="ml-auto flex w-full max-w-sm gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addSites(url);
+            }}
           >
-            Hent
-          </button>
-        </form>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Tilføj endnu en side (link)"
+              className="flex-1 rounded-lg bg-neutral-800 px-3 py-1.5 text-sm placeholder:text-neutral-500"
+            />
+            <button
+              disabled={!url.trim()}
+              className="rounded-lg bg-neutral-100 px-3 py-1.5 text-sm font-semibold text-neutral-900 hover:bg-white disabled:opacity-40"
+            >
+              Tilføj
+            </button>
+          </form>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -282,18 +327,47 @@ export function Studio() {
               pickNumbers={pickNumbers}
               loading={loadingUrls}
               onTogglePick={togglePick}
-              onRemoveBoard={(id) =>
-                setProject((p) => ({
-                  ...p,
-                  boards: p.boards.filter((b) => b.captureId !== id),
-                  picks: p.picks.filter((x) => x.captureId !== id),
-                }))
-              }
+              onRemoveBoard={removeBoard}
               onMoveBoard={(id, x, y) =>
                 setProject((p) => ({ ...p, boards: p.boards.map((b) => (b.captureId === id ? { ...b, x, y } : b)) }))
               }
             />
           </div>
+          {tab === "canvas" && loaded && project.boards.length === 0 && loadingUrls.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <form
+                className="w-full max-w-xl rounded-2xl border border-neutral-800 bg-neutral-900 p-8 shadow-2xl"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addSites(url);
+                }}
+              >
+                <h1 className="text-2xl font-semibold text-white">Hvilke sider kan du lide?</h1>
+                <p className="mt-2 leading-relaxed text-neutral-400">
+                  Indsæt links til 2-3 sider, du er inspireret af. Bagefter klikker du på de dele, du vil låne, og får
+                  lavet én ny side ud fra dem.
+                </p>
+                <textarea
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addSites(url);
+                  }}
+                  rows={3}
+                  autoFocus
+                  placeholder={"stripe.com\nlinear.app\napple.com/dk"}
+                  className="mt-5 w-full resize-none rounded-lg bg-neutral-800 px-3.5 py-3 font-mono text-sm text-neutral-100 placeholder:text-neutral-600"
+                />
+                <p className="mt-1.5 text-xs text-neutral-500">Ét link pr. linje.</p>
+                <button
+                  disabled={!url.trim()}
+                  className="mt-4 w-full rounded-xl bg-sky-500 px-4 py-3 font-semibold text-white hover:bg-sky-400 disabled:bg-neutral-800 disabled:text-neutral-500"
+                >
+                  Hent siderne
+                </button>
+              </form>
+            </div>
+          )}
           {tab === "preview" && (
             <Preview
               versions={project.versions}
@@ -304,6 +378,8 @@ export function Studio() {
               error={genError}
               onStop={() => abortRef.current?.abort()}
               onRefine={(instruction) => generate({ html: currentHtml(), instruction })}
+              pickCount={project.picks.length}
+              onGenerate={() => generate()}
             />
           )}
           {toast && (
@@ -312,6 +388,7 @@ export function Studio() {
             </div>
           )}
         </main>
+        {(project.boards.length > 0 || loadingUrls.length > 0) && (
         <Moodboard
           project={project}
           metas={metas}
@@ -323,6 +400,7 @@ export function Studio() {
           }}
           onGenerate={() => generate()}
         />
+        )}
       </div>
     </div>
   );

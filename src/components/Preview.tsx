@@ -12,10 +12,24 @@ type Props = {
   error: string | null;
   onRefine: (instruction: string) => void;
   onStop: () => void;
+  pickCount: number;
+  onGenerate: () => void;
 };
 
-export function Preview({ versions, currentId, onSelect, generating, streamText, error, onRefine, onStop }: Props) {
+export function Preview({
+  versions,
+  currentId,
+  onSelect,
+  generating,
+  streamText,
+  error,
+  onRefine,
+  onStop,
+  pickCount,
+  onGenerate,
+}: Props) {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [showCode, setShowCode] = useState(false);
   const [instruction, setInstruction] = useState("");
   const current = versions.find((v) => v.id === currentId) ?? versions[versions.length - 1];
 
@@ -37,7 +51,7 @@ export function Preview({ versions, currentId, onSelect, generating, streamText,
 
   return (
     <div className="flex h-full flex-col bg-neutral-950">
-      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-800 px-4 py-2 text-sm text-neutral-300">
+      <div className={`${versions.length === 0 ? "hidden" : "flex"} flex-wrap items-center gap-2 border-b border-neutral-800 px-4 py-2 text-sm text-neutral-300`}>
         {versions.length > 0 && (
           <select
             value={current?.id}
@@ -75,19 +89,36 @@ export function Preview({ versions, currentId, onSelect, generating, streamText,
 
       <div className="relative flex-1 overflow-hidden">
         {generating ? (
-          <div className="flex h-full flex-col">
-            <div className="flex items-center gap-3 px-6 py-4 text-neutral-300">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
-              {streamText.length === 0
-                ? "Claude kigger på dine udklip og planlægger designet …"
-                : `Skriver siden … ${Math.round(streamText.length / 1000)}k tegn`}
-              <button onClick={onStop} className="ml-auto rounded bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-700">
+          <div className="flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+            <span className="h-10 w-10 animate-spin rounded-full border-[3px] border-sky-400 border-t-transparent" />
+            <div>
+              <p className="text-lg font-medium text-white">
+                {streamText.length === 0 ? "Claude kigger på dine udklip …" : "Claude bygger din side …"}
+              </p>
+              <p className="mt-1 text-sm text-neutral-400">
+                {streamText.length === 0
+                  ? "Først samles farver, skrifttyper og afstande til ét design."
+                  : "Det tager typisk 1-3 minutter. Du kan godt kigge på lærredet imens."}
+              </p>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <button onClick={onStop} className="rounded-lg bg-neutral-800 px-3 py-1.5 text-neutral-200 hover:bg-neutral-700">
                 Stop
               </button>
+              {streamText.length > 0 && (
+                <button
+                  onClick={() => setShowCode((v) => !v)}
+                  className="rounded-lg px-3 py-1.5 text-neutral-500 hover:text-neutral-200"
+                >
+                  {showCode ? "Skjul koden" : "Vis koden"}
+                </button>
+              )}
             </div>
-            <pre className="flex-1 overflow-hidden whitespace-pre-wrap px-6 pb-6 font-mono text-[11px] leading-relaxed text-neutral-500">
-              {streamText.slice(-6000)}
-            </pre>
+            {showCode && (
+              <pre className="max-h-64 w-full max-w-3xl overflow-hidden whitespace-pre-wrap rounded-lg bg-neutral-900 p-4 text-left font-mono text-[11px] leading-relaxed text-neutral-500">
+                {streamText.slice(-3000)}
+              </pre>
+            )}
           </div>
         ) : current ? (
           <div className="flex h-full justify-center overflow-auto bg-neutral-900 p-4">
@@ -101,8 +132,18 @@ export function Preview({ versions, currentId, onSelect, generating, streamText,
             />
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-neutral-500">
-            Ingen side endnu. Vælg elementer på lærredet og tryk “Lav side med AI”.
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+            <p className="text-lg font-medium text-white">Du har ikke lavet en side endnu</p>
+            <p className="max-w-sm text-sm text-neutral-400">
+              {pickCount === 0
+                ? "Gå tilbage til lærredet og klik på de dele af siderne, du kan lide."
+                : `Du har valgt ${pickCount} element${pickCount === 1 ? "" : "er"}. Tryk på knappen, så laver Claude siden.`}
+            </p>
+            {pickCount > 0 && (
+              <button onClick={onGenerate} className="rounded-xl bg-sky-500 px-5 py-2.5 font-semibold text-white hover:bg-sky-400">
+                Lav siden
+              </button>
+            )}
           </div>
         )}
         {error && (
@@ -113,7 +154,7 @@ export function Preview({ versions, currentId, onSelect, generating, streamText,
       </div>
 
       <form
-        className="flex gap-2 border-t border-neutral-800 p-3"
+        className={`${versions.length === 0 ? "hidden" : "flex"} gap-2 border-t border-neutral-800 p-3`}
         onSubmit={(e) => {
           e.preventDefault();
           if (!instruction.trim()) return;
@@ -125,14 +166,14 @@ export function Preview({ versions, currentId, onSelect, generating, streamText,
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           disabled={!current || generating}
-          placeholder="Ret noget, fx “gør heroen højere og brug den grønne farve til knapper”"
+          placeholder="Skriv hvad der skal ændres, fx “gør overskriften større og knapperne grønne”"
           className="flex-1 rounded-lg bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 disabled:opacity-50"
         />
         <button
           disabled={!current || generating || !instruction.trim()}
           className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-40"
         >
-          Ret
+          Ret siden
         </button>
       </form>
     </div>

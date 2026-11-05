@@ -2,7 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { shotUrl } from "@/lib/client";
-import type { CaptureMeta, CapturedElement, Pick } from "@/lib/types";
+import type { CaptureMeta, CapturedElement, Pick, Role } from "@/lib/types";
+
+const ROLE_DA: Record<Role, string> = {
+  header: "Menu",
+  nav: "Menu",
+  hero: "Hero",
+  section: "Sektion",
+  card: "Kort",
+  button: "Knap",
+  heading: "Overskrift",
+  image: "Billede",
+  form: "Formular",
+  list: "Liste",
+  footer: "Footer",
+  text: "Tekst",
+  block: "Blok",
+};
 
 type Props = {
   meta: CaptureMeta;
@@ -49,7 +65,10 @@ export function Board({
 
   const anchor = candidates[0]?.i ?? -1;
   const level = levelState.anchor === anchor ? levelState.level : 0;
-  const hovered = candidates[Math.min(level, candidates.length - 1)];
+  const hoveredIdx = Math.min(level, candidates.length - 1);
+  const hovered = candidates[hoveredIdx];
+  const bigger = candidates[hoveredIdx + 1];
+  const smaller = hoveredIdx > 0 ? candidates[hoveredIdx - 1] : undefined;
 
   // Piletaster skifter niveau: op = større (forælder), ned = mindre.
   useEffect(() => {
@@ -87,11 +106,9 @@ export function Board({
       >
         <span className="font-semibold text-white truncate">{meta.host}</span>
         <span className="truncate opacity-60">{meta.title}</span>
-        <span className="opacity-40 ml-auto shrink-0">
-          {meta.elements.length} elementer{meta.truncated ? " · afkortet" : ""}
-        </span>
+        {meta.truncated && <span className="opacity-40 shrink-0">kun øverste del</span>}
         <button
-          className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-400"
+          className="ml-auto shrink-0 opacity-60 hover:opacity-100 hover:text-red-400"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRemove}
           title="Fjern siden fra lærredet"
@@ -161,11 +178,14 @@ export function Board({
             }}
           >
             <span
-              className="absolute left-0 bg-sky-500 text-white px-1.5 whitespace-nowrap leading-tight"
-              style={{ fontSize: labelSize, top: -labelSize * 1.5 }}
+              className="absolute left-0 flex items-center gap-1.5 whitespace-nowrap leading-tight"
+              style={{ fontSize: labelSize, top: -labelSize * 1.6 }}
             >
-              &lt;{hovered.tag}&gt; {hovered.role} · {hovered.rect.w}×{hovered.rect.h}
-              {candidates.length > 1 ? `  ·  ↑↓ niveau ${Math.min(level, candidates.length - 1) + 1}/${candidates.length}` : ""}
+              <span className="bg-sky-500 px-1.5 py-px font-semibold text-white">
+                {myPicks.some((p) => p.elementIndex === hovered.i) ? "Klik for at fjerne" : `Klik for at vælge: ${ROLE_DA[hovered.role]}`}
+              </span>
+              {bigger && <span className="bg-neutral-900/90 px-1.5 py-px text-neutral-200">↑ {ROLE_DA[bigger.role]}</span>}
+              {smaller && <span className="bg-neutral-900/90 px-1.5 py-px text-neutral-200">↓ {ROLE_DA[smaller.role]}</span>}
             </span>
           </div>
         )}
