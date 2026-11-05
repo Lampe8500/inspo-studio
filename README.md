@@ -7,6 +7,10 @@ Et personligt værktøj til at samle inspiration fra 2-3 hjemmesider og lave en 
 3. **Moodboardet** til højre samler dine valg. Du kan ændre typen, vælge om du vil låne *layout*, *farver* og/eller *typografi*, skrive en note og ændre rækkefølgen.
 4. **Lav side med AI.** Claude får udklip, målte CSS-værdier og dine noter og laver én samlet HTML-side (Tailwind). Du kan rette den med almindelig tekst, skifte mellem versioner og downloade den.
 
+**Farver og fonte:** Klik på "Farver" over en side for at se dens farver (sorteret i baggrund, flader, tekst og accent) og dens fonte til overskrifter og brødtekst. Klik på en farve for at kopiere hex-koden. Med + gemmer du den i din palette, og du kan blande fra flere sider. Paletten bliver brugt, når siden laves, og kan kopieres som CSS-variabler.
+
+Første gang du har sider på lærredet, viser en kort guide i tre trin, hvor du klikker. Med **?** øverst kan du se den igen.
+
 Med "Følg min rækkefølge" slået til bliver moodboardets rækkefølge til sidens opbygning, så du selv bestemmer strukturen. Slår du det fra, vælger AI'en opbygningen.
 
 ## Kom i gang

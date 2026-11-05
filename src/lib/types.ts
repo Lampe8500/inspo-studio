@@ -64,6 +64,8 @@ export type CaptureMeta = {
   truncated: boolean;
   colors: Token[];
   fonts: Token[];
+  /** Sidens grundfarve (body/html). Mangler på sider hentet før feltet fandtes. */
+  pageBackground?: string;
   elements: CapturedElement[];
 };
 
@@ -100,6 +102,10 @@ export type PageVersion = {
   html: string;
 };
 
+export type SavedColor = { id: string; hex: string; role: string; from: string };
+export type SavedFont = { id: string; family: string; role: string; size: string; weight: string; from: string };
+export type Palette = { colors: SavedColor[]; fonts: SavedFont[] };
+
 export type Project = {
   boards: BoardPlacement[];
   picks: Pick[];
@@ -107,6 +113,7 @@ export type Project = {
   language: "da" | "en";
   followOrder: boolean;
   versions: PageVersion[];
+  palette: Palette;
 };
 
 export const emptyProject = (): Project => ({
@@ -116,6 +123,7 @@ export const emptyProject = (): Project => ({
   language: "da",
   followOrder: true,
   versions: [],
+  palette: { colors: [], fonts: [] },
 });
 
 /** Det klienten sender til /api/generate for hver valgt bid */
@@ -139,6 +147,8 @@ export type GenerateRequest = {
   followOrder: boolean;
   picks: GeneratePick[];
   sites: { host: string; colors: Token[]; fonts: Token[] }[];
+  /** Brugerens gemte farver og fonte – skal bruges, hvis de findes */
+  palette?: { colors: { hex: string; role: string }[]; fonts: { family: string; role: string }[] };
   /** Ved rettelser: den nuværende side og hvad der skal ændres */
   refine?: { html: string; instruction: string };
 };

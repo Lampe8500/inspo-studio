@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, type CanvasHandle } from "./Canvas";
 import { Moodboard } from "./Moodboard";
 import { Preview } from "./Preview";
+import { Tour, tourSeen } from "./Tour";
 import { cleanHtml, cropToBase64, defaultPickRole, uid } from "@/lib/client";
 import {
   emptyProject,
@@ -28,6 +29,9 @@ export function Studio() {
   const [streamText, setStreamText] = useState("");
   const [genError, setGenError] = useState<string | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [sideTab, setSideTab] = useState<"picks" | "palette">("picks");
+  const [paletteSource, setPaletteSource] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
   const canvasRef = useRef<CanvasHandle>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -66,6 +70,13 @@ export function Studio() {
     }, 500);
     return () => clearTimeout(t);
   }, [project, loaded]);
+
+  const hasBoards = project.boards.length > 0;
+  useEffect(() => {
+    if (!loaded || !hasBoards || tourSeen()) return;
+    const t = setTimeout(() => setTourOpen(true), 900);
+    return () => clearTimeout(t);
+  }, [loaded, hasBoards]);
 
   useEffect(() => {
     if (!toast) return;
@@ -158,6 +169,13 @@ export function Studio() {
       followOrder: project.followOrder,
       picks,
       sites: usedIds.map((id) => ({ host: metas[id].host, colors: metas[id].colors, fonts: metas[id].fonts })),
+      palette:
+        project.palette.colors.length || project.palette.fonts.length
+          ? {
+              colors: project.palette.colors.map((c) => ({ hex: c.hex, role: c.role })),
+              fonts: project.palette.fonts.map((f) => ({ family: f.family, role: f.role })),
+            }
+          : undefined,
       refine,
     };
   };
@@ -292,6 +310,18 @@ export function Studio() {
             </div>
           ))}
         </nav>
+        <button
+          onClick={() => {
+            setTab("canvas");
+            setTourOpen(true);
+          }}
+          disabled={!hasBoards}
+          title="Vis guiden igen"
+          aria-label="Vis guiden igen"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-800 text-sm text-neutral-400 hover:text-white disabled:opacity-30"
+        >
+          ?
+        </button>
         {project.boards.length > 0 && (
           <form
             className="ml-auto flex w-full max-w-sm gap-2"
@@ -328,6 +358,10 @@ export function Studio() {
               loading={loadingUrls}
               onTogglePick={togglePick}
               onRemoveBoard={removeBoard}
+              onShowPalette={(id) => {
+                setPaletteSource(id);
+                setSideTab("palette");
+              }}
               onMoveBoard={(id, x, y) =>
                 setProject((p) => ({ ...p, boards: p.boards.map((b) => (b.captureId === id ? { ...b, x, y } : b)) }))
               }
@@ -399,8 +433,13 @@ export function Studio() {
             setTimeout(() => canvasRef.current?.focusBoard(id), 0);
           }}
           onGenerate={() => generate()}
+          tab={sideTab}
+          onTabChange={setSideTab}
+          paletteSource={paletteSource}
+          onPaletteSource={setPaletteSource}
         />
         )}
+      <Tour open={tourOpen} onClose={() => setTourOpen(false)} />
       </div>
     </div>
   );

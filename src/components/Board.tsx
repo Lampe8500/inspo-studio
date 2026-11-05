@@ -28,6 +28,7 @@ type Props = {
   scale: number;
   onTogglePick: (meta: CaptureMeta, el: CapturedElement) => void;
   onRemove: () => void;
+  onShowPalette: () => void;
   onDragStart: (e: React.PointerEvent) => void;
   panMode: boolean;
 };
@@ -39,6 +40,7 @@ export function Board({
   scale,
   onTogglePick,
   onRemove,
+  onShowPalette,
   onDragStart,
   panMode,
 }: Props) {
@@ -104,11 +106,23 @@ export function Board({
         style={{ height: 48 / Math.max(scale, 0.25), fontSize: 14 / Math.max(scale, 0.25) }}
         onPointerDown={onDragStart}
       >
-        <span className="font-semibold text-white truncate">{meta.host}</span>
-        <span className="truncate opacity-60">{meta.title}</span>
+        <span className="min-w-0 font-semibold text-white truncate" title={meta.title}>{meta.host}</span>
         {meta.truncated && <span className="opacity-40 shrink-0">kun øverste del</span>}
         <button
-          className="ml-auto shrink-0 opacity-60 hover:opacity-100 hover:text-red-400"
+          className="ml-auto shrink-0 rounded-full bg-white/10 px-[0.8em] py-[0.2em] text-neutral-200 hover:bg-white/20"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onShowPalette}
+          title="Se sidens farver og fonte"
+        >
+          <span className="mr-[0.4em] inline-flex gap-[0.15em] align-[-0.1em]">
+            {meta.colors.slice(0, 3).map((c) => (
+              <span key={c.value} className="inline-block h-[0.8em] w-[0.8em] rounded-full ring-1 ring-white/30" style={{ background: c.value }} />
+            ))}
+          </span>
+          Farver
+        </button>
+        <button
+          className="shrink-0 opacity-60 hover:opacity-100 hover:text-red-400"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRemove}
           title="Fjern siden fra lærredet"

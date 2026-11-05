@@ -79,6 +79,7 @@ async function scrollThrough(page: Page) {
 
 type RawResult = {
   title: string;
+  pageBackground: string;
   description: string;
   height: number;
   elements: Omit<CapturedElement, "i">[];
@@ -265,8 +266,13 @@ function extractInBrowser(args: { maxHeight: number; maxElements: number }): Raw
       .slice(0, n)
       .map(([value, weight]) => ({ value, weight: Math.round(weight) }));
 
+  const bodyBg = getComputedStyle(document.body).backgroundColor;
+  const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
+  const pageBackground = !isTransparent(bodyBg) ? bodyBg : !isTransparent(htmlBg) ? htmlBg : "rgb(255, 255, 255)";
+
   return {
     title: document.title,
+    pageBackground,
     description:
       document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content || "",
     height: docH,
@@ -323,6 +329,7 @@ export async function capturePage(rawUrl: string): Promise<{ meta: CaptureMeta; 
       truncated: fullHeight > MAX_HEIGHT,
       colors: raw.colors,
       fonts: raw.fonts,
+      pageBackground: raw.pageBackground,
       elements: raw.elements.map((e, i) => ({ ...e, i })),
     };
     return { meta, shot };

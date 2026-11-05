@@ -66,6 +66,17 @@ function buildUserContent(req: GenerateRequest): Anthropic.Beta.BetaContentBlock
         .join("\n"),
   });
 
+  const pal = req.palette;
+  if (pal && (pal.colors.length > 0 || pal.fonts.length > 0)) {
+    content.push({
+      type: "text",
+      text:
+        "Brugerens egen palette. Den vejer tungere end farverne og fontene i udklippene: byg designsystemet på den.\n" +
+        (pal.colors.length ? `Farver: ${pal.colors.map((c) => `${c.hex} (${c.role})`).join(", ")}\n` : "") +
+        (pal.fonts.length ? `Fonte: ${pal.fonts.map((f) => `${f.family} (${f.role})`).join(", ")}` : ""),
+    });
+  }
+
   req.picks.forEach((p, idx) => {
     content.push({ type: "text", text: describePick(p, idx + 1) });
     content.push({

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PICK_ROLES, shotUrl } from "@/lib/client";
+import { PalettePanel } from "./PalettePanel";
 import type { Aspect, CaptureMeta, Pick, Project } from "@/lib/types";
 
 /** Ét enkelt valg i stedet for tre knapper: hvad vil du låne fra udklippet? */
@@ -48,9 +49,24 @@ type Props = {
   onChange: (fn: (p: Project) => Project) => void;
   onFocusBoard: (captureId: string) => void;
   onGenerate: () => void;
+  tab: "picks" | "palette";
+  onTabChange: (t: "picks" | "palette") => void;
+  paletteSource: string | null;
+  onPaletteSource: (id: string) => void;
 };
 
-export function Moodboard({ project, metas, generating, onChange, onFocusBoard, onGenerate }: Props) {
+export function Moodboard({
+  project,
+  metas,
+  generating,
+  onChange,
+  onFocusBoard,
+  onGenerate,
+  tab,
+  onTabChange,
+  paletteSource,
+  onPaletteSource,
+}: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
@@ -71,18 +87,47 @@ export function Moodboard({ project, metas, generating, onChange, onFocusBoard, 
   const remove = (id: string) => onChange((p) => ({ ...p, picks: p.picks.filter((x) => x.id !== id) }));
 
   const count = project.picks.length;
+  const paletteCount = project.palette.colors.length + project.palette.fonts.length;
 
   return (
-    <aside className="flex h-full w-[348px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
-      <div className="px-5 pb-3 pt-5">
-        <h2 className="text-base font-semibold text-white">Dine valg {count > 0 && <span className="text-neutral-500">({count})</span>}</h2>
-        <p className="mt-1 text-sm leading-snug text-neutral-400">
-          {count === 0
-            ? "Klik på de dele af siderne, du kan lide. De dukker op her."
-            : "Træk i ⠿ for at ændre rækkefølgen. Den bliver sidens opbygning fra top til bund."}
-        </p>
+    <aside data-tour="moodboard" className="flex h-full w-[348px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
+      <div className="px-5 pb-3 pt-4">
+        <div className="flex rounded-lg bg-neutral-800 p-0.5 text-sm" role="tablist">
+          {(
+            [
+              ["picks", `Dine valg${count ? ` (${count})` : ""}`],
+              ["palette", `Farver og fonte${paletteCount ? ` (${paletteCount})` : ""}`],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={tab === k}
+              onClick={() => onTabChange(k)}
+              className={`flex-1 rounded-md px-2 py-1.5 ${tab === k ? "bg-neutral-600 font-medium text-white" : "text-neutral-400 hover:text-white"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {tab === "picks" && (
+          <p className="mt-3 text-sm leading-snug text-neutral-400">
+            {count === 0
+              ? "Klik på de dele af siderne, du kan lide. De dukker op her."
+              : "Træk i ⠿ for at ændre rækkefølgen. Den bliver sidens opbygning fra top til bund."}
+          </p>
+        )}
       </div>
 
+      {tab === "palette" ? (
+        <PalettePanel
+          project={project}
+          metas={metas}
+          sourceId={paletteSource}
+          onSourceChange={onPaletteSource}
+          onChange={onChange}
+        />
+      ) : (
       <ol className="flex-1 space-y-2.5 overflow-y-auto px-5 pb-4">
         {count === 0 && (
           <li className="rounded-xl border border-dashed border-neutral-700 p-6 text-center text-sm text-neutral-500">
@@ -202,6 +247,7 @@ export function Moodboard({ project, metas, generating, onChange, onFocusBoard, 
           );
         })}
       </ol>
+      )}
 
       <div className="space-y-3 border-t border-neutral-800 p-5">
         <label className="block">
@@ -215,6 +261,7 @@ export function Moodboard({ project, metas, generating, onChange, onFocusBoard, 
           />
         </label>
         <button
+          data-tour="generate"
           onClick={onGenerate}
           disabled={generating || count === 0}
           className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"

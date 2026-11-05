@@ -14,6 +14,7 @@ type Props = {
   loading: string[];
   onTogglePick: (meta: CaptureMeta, el: CapturedElement) => void;
   onRemoveBoard: (captureId: string) => void;
+  onShowPalette: (captureId: string) => void;
   onMoveBoard: (captureId: string, x: number, y: number) => void;
 };
 
@@ -23,7 +24,7 @@ const MIN = 0.05;
 const MAX = 2;
 
 export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
-  { boards, metas, picks, pickNumbers, loading, onTogglePick, onRemoveBoard, onMoveBoard },
+  { boards, metas, picks, pickNumbers, loading, onTogglePick, onRemoveBoard, onMoveBoard, onShowPalette },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -161,6 +162,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
     <div
       ref={rootRef}
       data-bg="1"
+      data-tour="canvas"
       className={`relative h-full w-full overflow-hidden canvas-bg ${
         panMode ? (dragging ? "cursor-grabbing" : "cursor-grab") : ""
       }`}
@@ -188,6 +190,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
                   panMode={panMode}
                   onTogglePick={onTogglePick}
                   onRemove={() => onRemoveBoard(b.captureId)}
+                  onShowPalette={() => onShowPalette(b.captureId)}
                   onDragStart={startBoardDrag(b)}
                 />
               </div>
